@@ -1,106 +1,95 @@
-#include <PubSubClient.h>
-#include <ESP8266WiFi.h>
+#include <TimeLib.h>
+#include <Time.h>
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
+//#include <string.h>
+#include <PubSubClient.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include <Ticker.h>
+#include <FS.h>
+#include "EspMqttPwm.h"
 
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PWM_I2C_ADDRESS);
 
-const char* ssid = "GuestFi";
-const char* password = "GuestF1";
-
-char* topic = "esp8266_arduino_out";
-char* server = "iot.eclipse.org";
-
-char message_buff[255];
-
+ESP8266WebServer HTTPserver(80);
 WiFiClient wifiClient;
-PubSubClient client(server, 1883, callback, wifiClient);
-
-void callback(char* topic, byte* payload, unsigned int length) {
-  // Here is what i have been using to handle subscriptions. I took it as a snippet from elsewhere but i cannot credit author as i dont have reference!
-  int i = 0;
-
-  Serial.println("Message arrived:  topic: " + String(topic));
-  Serial.println("Length: " + String(length,DEC));
-  
-  // create character buffer with ending null terminator (string)
-  for(i=0; i<length; i++) {
-    message_buff[i] = payload[i];
-  }
-  message_buff[i] = '\0';
-  
-  String msgString = String(message_buff);
-  
-  Serial.println("Payload: " + msgString);
-}
-
-String macToStr(const uint8_t* mac)
-{
-  String result;
-  for (int i = 0; i < 6; ++i) {
-    result += String(mac[i], 16);
-    if (i < 5)
-      result += ':';
-  }
-  return result;
-}
-
-#define SERVOMIN 150
-#define SERVOMAX 600
-
-uint8_t servonum = 0;
+PubSubClient client(C.mqtt_server, 1883, callback, wifiClient);
+Ticker tick;
 
 void setup() {
+
+  Wire.begin(PIN_I2C_SDA,PIN_I2C_SCL);
+
   Serial.begin(9600);
+  Serial.println();
   Serial.println("MQTT / PWM test");
+  Serial.println("===============");
+//  Serial.print("sizeof(C)=");Serial.println(sizeof(C));
+
   delay(10);
   
-  pwm.begin(0,2);
-  
-  pwm.setPWMFreq(60);  // Analog servos run at ~60 Hz updates
+  pwm.begin();
+  pwm.setPWMFreq(1600);  
 
-  WiFi.begin(ssid, password);
+//xxvoid setDS3231time(byte second, byte minute, byte hour, byte dayOfWeek, byte dayOfMonth, byte month, byte year)
+//  setDS3231time(0,57,23,5,3,12,15);
+  Serial.print("DS3231 time: ");
+  displayTime();
+
+  time_t t = now();
+  Serial.print("ESP time: ");Serial.print(hour(t));Serial.print(":");Serial.print(minute(t));Serial.print(":");Serial.print(second(t));Serial.println(" ");
+  
+  tick.attach(0.1,tock);
+
+  WiFi.begin(C.wifi_ssid, C.wifi_pwd);
+
   Serial.print("ESP-01 MAC: ");
   uint8_t mac[6];
   WiFi.macAddress(mac);
-  Serial.println(macToStr(mac));
+  for (int i=0; i<sizeof(mac); ++i) {
+    sprintf(MAC_char,"%s%02x:",MAC_char,mac[i]);
+  }
+  MAC_char[strlen(MAC_char)-1]='\0';
+  Serial.println(MAC_char);
+  
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
   Serial.println("");
   Serial.println("WiFi connected");  
-  Serial.println("IP address: ");
+  Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
+  HTTPserver.on("/", handle_root);
+  HTTPserver.on("/setgauge", handle_setgauge);
+  HTTPserver.on("/getgauge", handle_getgauge);
+  HTTPserver.on("/gettime", handle_gettime);
+  HTTPserver.begin();
+  Serial.println("HTTP HTTPserver started");
+  
   // Generate client name based on MAC address and last 8 bits of microsecond counter
-  String clientName;
-  clientName += "esp8266-";
-  clientName += macToStr(mac);
-  clientName += "-";
-  clientName += String(micros() & 0xff, 16);
+//  sprintf(MQTTClientName,"%-17s-%02x", MAC_char, micros() & 0xff,16);
+  sprintf(MQTTClientName,"%-17s-%s", MAC_char, "xx"); //For debugging set -xx so that I'm not chasing the clientname
 
   Serial.print("Connecting to ");
-  Serial.print(server);
+  Serial.print(C.mqtt_server);
   Serial.print(" as ");
-  Serial.println(clientName);
+  Serial.println(MQTTClientName);
 
-  if (client.connect((char*) clientName.c_str())) {
+  if (client.connect(MQTTClientName)) {
     Serial.println("Connected to MQTT broker");
-    Serial.print("Topic is: ");
-    Serial.println(topic);
-    
-    if (client.publish(topic, "hello from ESP8266")) {
-      Serial.println("Publish ok");
+
+    MQTTTopicName = (char*)malloc(sizeof(char) * 100);
+    snprintf(MQTTTopicName,100,"%s/gauge/#",MQTTClientName);
+    if (client.subscribe(MQTTTopicName,0)) {
+      Serial.print("Subscribe to topics ok: ");
+      Serial.println(MQTTTopicName);
     }
     else {
-      Serial.println("Publish failed");
-    }
-    if (client.subscribe(topic)) {
-      Serial.println("Subscribe ok");
-    }
-    else {
-      Serial.println("Subscribe failed");
+      Serial.print("Subscribe to topics failed: ");
+      Serial.println(MQTTTopicName);
     }
   }
   else {
@@ -112,21 +101,7 @@ void setup() {
 
 void loop() {
 
-//  static int counter=0;
-//  
-//  // put your main code here, to run repeatedly:
-////  Serial.println(servonum);
-//  for (uint16_t pulselen = SERVOMIN; pulselen < SERVOMAX; pulselen++) {
-//    pwm.setPWM(servonum, 0, pulselen);
-//  }
-//  delay(500);
-//  for (uint16_t pulselen = SERVOMAX; pulselen > SERVOMIN; pulselen--) {
-//    pwm.setPWM(servonum, 0, pulselen);
-//  }
-//  delay(500);
-//
-//  servonum ++;
-//  if (servonum > 15) servonum = 0;
-  
   client.loop();
+  HTTPserver.handleClient();
+
 }
