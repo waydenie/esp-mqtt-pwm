@@ -1,0 +1,6 @@
+wifi_ssid	= "WhyFi"
+wifi_pwd	= "test!123"
+admin_pwd	= "test!123"
+mqtt_server	= "iot.eclipse.org"
+cntdwn_clock1	= 1746057600
+cntdwn_clock2	= 1451606400
