@@ -11,6 +11,8 @@
 #define MODE_GAUGES    3
 
 int current_mode = MODE_CLOCK;
+volatile bool process_clocktick = false;
+volatile time_t lastTime=0;
 
 char MAC_char[18];
 

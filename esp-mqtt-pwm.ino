@@ -2,7 +2,6 @@
 #include <Time.h>
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
-//#include <string.h>
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -19,28 +18,47 @@ Ticker tick;
 
 void setup() {
 
-  Wire.begin(PIN_I2C_SDA,PIN_I2C_SCL);
-
   Serial.begin(9600);
   Serial.println();
   Serial.println("MQTT / PWM test");
   Serial.println("===============");
 //  Serial.print("sizeof(C)=");Serial.println(sizeof(C));
 
+  if (!SPIFFS.begin()) {
+    Serial.println("Mount of SPIFFS FS failed!");  
+  } else {
+    Serial.println("SPIFFS FS mounted.");
+    File f=SPIFFS.open("/config.txt","r");
+    if (!f) {
+      Serial.println("Failed to open stored config");
+    } else {
+      
+      f.close();
+    }
+  }
+
+  Wire.begin(PIN_I2C_SDA,PIN_I2C_SCL);
   delay(10);
   
   pwm.begin();
   pwm.setPWMFreq(1600);  
 
+  setSyncProvider(getClockTime);
+  while(timeStatus()== timeNotSet) {   
+     delay(0); // wait until the time is set by the sync provider
+  }
+  
 //xxvoid setDS3231time(byte second, byte minute, byte hour, byte dayOfWeek, byte dayOfMonth, byte month, byte year)
 //  setDS3231time(0,57,23,5,3,12,15);
   Serial.print("DS3231 time: ");
   displayTime();
 
+  Serial.print("getClockTime: "); Serial.println(getClockTime());
+
   time_t t = now();
   Serial.print("ESP time: ");Serial.print(hour(t));Serial.print(":");Serial.print(minute(t));Serial.print(":");Serial.print(second(t));Serial.println(" ");
   
-  tick.attach(0.1,tock);
+  tick.attach_ms(50,tock);
 
   WiFi.begin(C.wifi_ssid, C.wifi_pwd);
 
@@ -104,4 +122,25 @@ void loop() {
   client.loop();
   HTTPserver.handleClient();
 
+  if (process_clocktick) {
+    switch(current_mode) {
+      case MODE_CLOCK :
+//        Serial.print("MODE_CLOCK time_t: ");Serial.println(lastTime);
+//        Serial.print("ESP Clock: ");Serial.print(hour(lastTime));Serial.print(":");Serial.print(minute(lastTime)); Serial.print(":"); Serial.print(second(lastTime)); Serial.print(" ");
+//        Serial.print(weekday(lastTime)); Serial.print(" "); Serial.print(day(lastTime)); Serial.print("/"); Serial.print(month(lastTime)); Serial.print("/"); Serial.println(year(lastTime));
+        setTimeGauges(lastTime);
+        break;
+      
+      case MODE_COUNTDOWN :
+        Serial.print("MODE_CLOUNTDOWN: ");Serial.println("");
+        setGauges((C.cntdwn_clock1 - lastTime), (C.cntdwn_clock2 - lastTime));
+        break;
+      
+      case MODE_GAUGES :
+        Serial.print("MODE_GAUGES: ");Serial.println("");
+        break;
+        
+    }
+    process_clocktick=false;
+  }
 }
