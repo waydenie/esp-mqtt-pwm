@@ -127,6 +127,7 @@ void setup() {
   Serial.println(WiFi.localIP());
 
   HTTPserver.on("/", handle_root);
+  HTTPserver.on("/conf", handle_conf);
   HTTPserver.on("/setgauge", handle_setgauge);
   HTTPserver.on("/getgauge", handle_getgauge);
   HTTPserver.on("/gettime", handle_gettime);
@@ -178,12 +179,12 @@ void loop() {
         break;
       
       case MODE_COUNTDOWN :
-        Serial.print("MODE_CLOUNTDOWN: ");Serial.println("");
+//        Serial.print("MODE_CLOUNTDOWN: ");Serial.println("");
         setGauges((C.cntdwn_clock1 - lastTime), (C.cntdwn_clock2 - lastTime));
         break;
       
       case MODE_GAUGES :
-        Serial.print("MODE_GAUGES: ");Serial.println("");
+//        Serial.print("MODE_GAUGES: ");Serial.println("");
         break;
         
     }

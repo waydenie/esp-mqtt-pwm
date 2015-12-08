@@ -10,7 +10,7 @@
 #define MODE_COUNTDOWN 2
 #define MODE_GAUGES    3
 
-int current_mode = MODE_CLOCK;
+volatile int current_mode = MODE_CLOCK;
 volatile bool process_clocktick = false;
 volatile time_t lastTime=0;
 

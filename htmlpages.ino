@@ -1,5 +1,30 @@
 #include "htmlpages.h"
 
+void handle_conf() {
+  
+  if (HTTPserver.args() > 0 ) {
+    for ( uint8_t i = 0; i < HTTPserver.args(); i++ ) {
+      if (HTTPserver.argName(i) == "CLKMODE") {
+         // do something here with value from server.arg(i);
+         if (HTTPserver.arg(i) == "CLK") {
+           Serial.println("Set Clock Mode");
+           current_mode=MODE_CLOCK;
+         } else if (HTTPserver.arg(i) == "CNTDWN") {
+           Serial.println("Set Countdown Clock Mode");
+           current_mode=MODE_COUNTDOWN;
+         } else if (HTTPserver.arg(i) == "GAUGE") {
+           Serial.println("Set Gauges Mode");
+           current_mode=MODE_GAUGES;
+         }
+      }
+   }
+
+
+
+    delay(100);
+  }
+}
+
 void handle_root() {
   HTTPserver.send(200, "text/html", index_html);
   Serial.println("HTTPServer request: /");
