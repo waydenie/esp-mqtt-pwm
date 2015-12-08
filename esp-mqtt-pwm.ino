@@ -1,3 +1,4 @@
+
 #include <TimeLib.h>
 #include <Time.h>
 #include <Wire.h>
@@ -16,6 +17,56 @@ WiFiClient wifiClient;
 PubSubClient client(C.mqtt_server, 1883, callback, wifiClient);
 Ticker tick;
 
+void readConfig(Config *C) {
+
+    File f=SPIFFS.open("/config.txt.wgn","r");
+    if (!f) {
+      Serial.println("Failed to open stored config.");
+    } else {
+      char line[256],key[256],val[256]; 
+      while (f.available()) {
+
+        f.readStringUntil('\n').toCharArray(line,sizeof(line));
+        int linelen=strlen(line);
+        int i=0,j=0;
+        while(isspace(line[i]) && i<linelen) i++;
+        if (i==linelen || line[i]=='#') continue; //skip comments and blank lines
+        while(!(isspace(line[i]) || line[i]=='=') && i<linelen) {
+          key[j] = tolower(line[i]);
+          i++; j++;
+        }
+        key[j]='\0';
+        j=0;
+        while((isspace(line[i]) or line[i]=='=') && i<linelen) i++;
+        if (i==linelen) continue;
+        while(!isspace(line[i]) && i<linelen) {
+          val[j] = line[i];
+          i++; j++;
+        }
+        j = j>CONFIG_LEN ? CONFIG_LEN : j;
+        val[j]='\0';
+
+//        Serial.print(strlen(line)); Serial.println(line);
+//        Serial.print("key:["); Serial.print(key); Serial.print("] val:["); Serial.print(val); Serial.print("]"); Serial.print(" j:"); Serial.println(j); 
+
+        if (strcmp(key,"wifi_ssid") == 0) {
+          memcpy(C->wifi_ssid,val,j);
+        } else if (strcmp(key,"wifi_pwd") == 0) {
+          memcpy(C->wifi_pwd,val,j);
+        } else if (strcmp(key,"admin_pwd") == 0) {
+          memcpy(C->admin_pwd,val,j);
+        } else if (strcmp(key,"mqtt_server") == 0) {
+          memcpy(C->mqtt_server,val,j);
+        } else if (strcmp(key,"cntdwn_clock1") == 0) {
+          C->cntdwn_clock1=(time_t)atoi(val);
+        } else if (strcmp(key,"cntdwn_clock2") == 0) {
+          C->cntdwn_clock2=(time_t)atoi(val);
+        }
+      }
+      f.close();
+    }
+}
+
 void setup() {
 
   Serial.begin(9600);
@@ -28,13 +79,7 @@ void setup() {
     Serial.println("Mount of SPIFFS FS failed!");  
   } else {
     Serial.println("SPIFFS FS mounted.");
-    File f=SPIFFS.open("/config.txt","r");
-    if (!f) {
-      Serial.println("Failed to open stored config");
-    } else {
-      
-      f.close();
-    }
+    readConfig(&C);
   }
 
   Wire.begin(PIN_I2C_SDA,PIN_I2C_SCL);
@@ -60,6 +105,7 @@ void setup() {
   
   tick.attach_ms(50,tock);
 
+  Serial.print("ssid:");Serial.println(C.wifi_ssid);
   WiFi.begin(C.wifi_ssid, C.wifi_pwd);
 
   Serial.print("ESP-01 MAC: ");

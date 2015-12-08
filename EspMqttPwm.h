@@ -19,18 +19,19 @@ char MAC_char[18];
 char MQTTClientName[20];
 char* MQTTTopicName;
 
+#define CONFIG_LEN 32
 typedef struct {
-  char wifi_ssid[32];
-  char wifi_pwd[32];
-  char admin_pwd[32];
-  char mqtt_server[32];
+  char wifi_ssid[CONFIG_LEN];
+  char wifi_pwd[CONFIG_LEN];
+  char admin_pwd[CONFIG_LEN];
+  char mqtt_server[CONFIG_LEN];
   time_t cntdwn_clock1;
   time_t cntdwn_clock2;
 } Config;
 
 // 20250501T0000 => 1746057600 : "Early" Retirement Date
 // 20160101T0000 => 1451606400 : New Years 2016
-Config C = {"WhyFi","test!123","test!123","iot.eclipse.org",1746057600,1451606400};
+Config C; // = {"WhyFi","test!123","test!123","iot.eclipse.org",1746057600,1451606400};
 
 //const char* server = "204.187.102.78";
 
