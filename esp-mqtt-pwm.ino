@@ -19,7 +19,7 @@ Ticker tick;
 
 void readConfig(Config *C) {
 
-    File f=SPIFFS.open("/config.txt.wgn","r");
+    File f=SPIFFS.open("/config.txt","r");
     if (!f) {
       Serial.println("Failed to open stored config.");
     } else {
