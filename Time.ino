@@ -1,3 +1,8 @@
+void strDateTime(char *buf, time_t t ) {
+  
+  sprintf(buf,"%02d:%02d:%02d %s %02d %s %4d",hour(t),minute(t),second(t),Weekdays[weekday(t)-1],day(t),Months[month(t)-1],year(t));
+}
+
 time_t getClockTime() {
   byte second, minute, hour, dayOfWeek, dayOfMonth, month, year;
 
@@ -33,25 +38,21 @@ void setTimeGauges (time_t curTime) {
 }
 
 void setGauges (time_t cntdwn_clock1, time_t cntdwn_clock2) {
-  
-}
+  int days, digit, mb;
 
-//void tock() {
-//  byte second, minute, hour, dayOfWeek, dayOfMonth, month, year;
-//  // retrieve data from DS3231
-//  readDS3231time(&second, &minute, &hour, &dayOfWeek, &dayOfMonth, &month, &year);
-//
-//  pwm.setPWM(15, 0, (uint16_t)(((double)hour/24)*4095));
-//  pwm.setPWM(14, 0, (uint16_t)(((double)minute/60)*4095));
-//  pwm.setPWM(13, 0, (uint16_t)(((double)second/60)*4095));
-//  pwm.setPWM(12, 0, (uint16_t)(((second%2)*3481)+205)); // 5%-95%FS
-//
-//  pwm.setPWM(11, 0, (uint16_t)(((double)dayOfWeek/8)*4095)); // 1of8(Sun) through 7of8(Sat)
-//  pwm.setPWM(10, 0, (uint16_t)((((double)dayOfMonth-1)/30)*4095)); // 0-30 => 1-31
-//  pwm.setPWM( 9, 0, (uint16_t)((((double)month-1)/11)*4095));
-//  pwm.setPWM( 8, 0, (uint16_t)(((year%10)/(double)10)*4095));
-//  
-//}
+  mb=12;  //meter base = meter #12
+  days = (int)(cntdwn_clock1/(60*60*24));
+  for (int y=0; y<2; y++) {
+  for (int i=0; i<4; i++) {
+    digit= days%10;
+//    Serial.print("days: ");Serial.print(days);Serial.print(" digit[");Serial.print(i);Serial.print("]: ");Serial.println(digit);
+    pwm.setPWM(mb+i, 0, (uint16_t)(((double)digit/10)*4095));
+    days = (int)days/10;
+  }
+  mb=8;
+  days = (int)(cntdwn_clock2/(60*60*24));
+  }
+}
 
 //From http://tronixlabs.com/news/tutorial-using-ds1307-and-ds3231-realtime-clock-modules-with-arduino/
 

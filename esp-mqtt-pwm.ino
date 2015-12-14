@@ -6,6 +6,7 @@
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <WiFiUdp.h>
 #include <Ticker.h>
 #include <FS.h>
 #include "EspMqttPwm.h"
@@ -14,7 +15,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PWM_I2C_ADDRESS);
 
 ESP8266WebServer HTTPserver(80);
 WiFiClient wifiClient;
-PubSubClient client(C.mqtt_server, 1883, callback, wifiClient);
+PubSubClient client(C_run.mqtt_server, 1883, callback, wifiClient);
 Ticker tick;
 
 void readConfig(Config *C) {
@@ -57,6 +58,8 @@ void readConfig(Config *C) {
           memcpy(C->admin_pwd,val,j);
         } else if (strcmp(key,"mqtt_server") == 0) {
           memcpy(C->mqtt_server,val,j);
+        } else if (strcmp(key,"ntp_server") == 0) {
+          memcpy(C->ntp_server,val,j);          
         } else if (strcmp(key,"cntdwn_clock1") == 0) {
           C->cntdwn_clock1=(time_t)atoi(val);
         } else if (strcmp(key,"cntdwn_clock2") == 0) {
@@ -79,7 +82,8 @@ void setup() {
     Serial.println("Mount of SPIFFS FS failed!");  
   } else {
     Serial.println("SPIFFS FS mounted.");
-    readConfig(&C);
+    readConfig(&C_save);
+    C_run=C_save;
   }
 
   Wire.begin(PIN_I2C_SDA,PIN_I2C_SCL);
@@ -105,8 +109,8 @@ void setup() {
   
   tick.attach_ms(50,tock);
 
-  Serial.print("ssid:");Serial.println(C.wifi_ssid);
-  WiFi.begin(C.wifi_ssid, C.wifi_pwd);
+  Serial.print("ssid:");Serial.println(C_run.wifi_ssid);
+  WiFi.begin(C_run.wifi_ssid, C_run.wifi_pwd);
 
   Serial.print("ESP-01 MAC: ");
   uint8_t mac[6];
@@ -126,11 +130,15 @@ void setup() {
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  HTTPserver.on("/", handle_root);
-  HTTPserver.on("/conf", handle_conf);
-  HTTPserver.on("/setgauge", handle_setgauge);
-  HTTPserver.on("/getgauge", handle_getgauge);
-  HTTPserver.on("/gettime", handle_gettime);
+  HTTPserver.on("/", handle_index);
+  HTTPserver.on("/index.html", handle_index);
+  HTTPserver.on("/stylemain.css", handle_stylemain);
+  HTTPserver.on("/style.css", handle_style);
+  HTTPserver.on("/tswnavbar.css", handle_tswnavbar);
+
+  HTTPserver.on("/status.html", handle_status);
+  HTTPserver.on("/meters.html", handle_meters);
+
   HTTPserver.begin();
   Serial.println("HTTP HTTPserver started");
   
@@ -139,7 +147,7 @@ void setup() {
   sprintf(MQTTClientName,"%-17s-%s", MAC_char, "xx"); //For debugging set -xx so that I'm not chasing the clientname
 
   Serial.print("Connecting to ");
-  Serial.print(C.mqtt_server);
+  Serial.print(C_run.mqtt_server);
   Serial.print(" as ");
   Serial.println(MQTTClientName);
 
@@ -180,7 +188,7 @@ void loop() {
       
       case MODE_COUNTDOWN :
 //        Serial.print("MODE_CLOUNTDOWN: ");Serial.println("");
-        setGauges((C.cntdwn_clock1 - lastTime), (C.cntdwn_clock2 - lastTime));
+        setGauges((C_run.cntdwn_clock1 - lastTime), (C_run.cntdwn_clock2 - lastTime));
         break;
       
       case MODE_GAUGES :
